@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 
 const TRANSLATE_API_URL = 'https://functions.poehali.dev/804c924f-daed-4cfb-a74d-c1fb367ee287';
+const EXTRACT_TEXT_API_URL = 'https://functions.poehali.dev/7a236db2-425a-4480-aa64-2ee4da74d621';
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState('главная');
@@ -15,6 +16,8 @@ const Index = () => {
   const [translatedText, setTranslatedText] = useState('');
   const [sourceLang, setSourceLang] = useState('Автоопределение');
   const [targetLang, setTargetLang] = useState('English');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
   const { toast } = useToast();
 
   const handleTranslate = async () => {
@@ -62,6 +65,76 @@ const Index = () => {
       });
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: 'Ошибка',
+        description: 'Поддерживаются только PDF, DOCX и TXT файлы',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: 'Ошибка',
+        description: 'Размер файла не должен превышать 50MB',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSelectedFile(file);
+    setIsExtracting(true);
+    setInputText('');
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Content = event.target?.result as string;
+        const base64Data = base64Content.split(',')[1];
+
+        const response = await fetch(EXTRACT_TEXT_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            file_content: base64Data,
+            file_type: file.type
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Не удалось извлечь текст');
+        }
+
+        setInputText(data.extracted_text);
+        toast({
+          title: 'Готово!',
+          description: `Извлечено ${data.text_length} символов из ${file.name}`
+        });
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось обработать файл',
+        variant: 'destructive'
+      });
+      setSelectedFile(null);
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -128,17 +201,58 @@ const Index = () => {
                   </TabsList>
 
                   <TabsContent value="upload">
-                    <div 
-                      onClick={handleFileUpload}
-                      className="border-2 border-dashed border-purple-300 rounded-2xl p-16 text-center hover:border-purple-500 hover:bg-purple-50/50 transition-all cursor-pointer group"
-                    >
-                      <Icon name="FileUp" size={64} className="mx-auto mb-4 text-purple-400 group-hover:text-purple-600 transition-colors" />
-                      <p className="text-lg font-medium text-gray-700 mb-2">
-                        Перетащите файл сюда или нажмите для выбора
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        PDF, DOCX, TXT, PPTX до 50MB
-                      </p>
+                    <div className="space-y-4">
+                      <label className="block">
+                        <div className="border-2 border-dashed border-purple-300 rounded-2xl p-16 text-center hover:border-purple-500 hover:bg-purple-50/50 transition-all cursor-pointer group">
+                          {isExtracting ? (
+                            <>
+                              <Icon name="Loader2" size={64} className="mx-auto mb-4 text-purple-500 animate-spin" />
+                              <p className="text-lg font-medium text-gray-700">
+                                Извлекаем текст из файла...
+                              </p>
+                            </>
+                          ) : selectedFile ? (
+                            <>
+                              <Icon name="FileCheck" size={64} className="mx-auto mb-4 text-green-500" />
+                              <p className="text-lg font-medium text-gray-700 mb-2">
+                                {selectedFile.name}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {(selectedFile.size / 1024).toFixed(2)} KB
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="FileUp" size={64} className="mx-auto mb-4 text-purple-400 group-hover:text-purple-600 transition-colors" />
+                              <p className="text-lg font-medium text-gray-700 mb-2">
+                                Перетащите файл сюда или нажмите для выбора
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                PDF, DOCX, TXT до 50MB
+                              </p>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept=".pdf,.docx,.txt"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                      </label>
+                      {selectedFile && (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            setInputText('');
+                          }}
+                          className="w-full"
+                        >
+                          <Icon name="X" size={18} className="mr-2" />
+                          Выбрать другой файл
+                        </Button>
+                      )}
                     </div>
                   </TabsContent>
 

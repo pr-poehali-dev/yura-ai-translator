@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "Extract text from TXT file",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "file_content": "SGVsbG8gV29ybGQ=",
+        "file_type": "txt"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "extracted_text": "Hello World",
+        "text_length": 11,
+        "file_type": "txt"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Missing file content returns error",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "file_type": "txt"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "File content is required"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
