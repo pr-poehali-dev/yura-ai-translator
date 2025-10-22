@@ -3,15 +3,66 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
+
+const TRANSLATE_API_URL = 'https://functions.poehali.dev/804c924f-daed-4cfb-a74d-c1fb367ee287';
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState('главная');
   const [isTranslating, setIsTranslating] = useState(false);
+  const [inputText, setInputText] = useState('');
+  const [translatedText, setTranslatedText] = useState('');
+  const [sourceLang, setSourceLang] = useState('Автоопределение');
+  const [targetLang, setTargetLang] = useState('English');
+  const { toast } = useToast();
 
-  const handleFileUpload = () => {
+  const handleTranslate = async () => {
+    if (!inputText.trim()) {
+      toast({
+        title: 'Ошибка',
+        description: 'Введите текст для перевода',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setIsTranslating(true);
-    setTimeout(() => setIsTranslating(false), 3000);
+    setTranslatedText('');
+
+    try {
+      const response = await fetch(TRANSLATE_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: inputText,
+          source_lang: sourceLang,
+          target_lang: targetLang
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка перевода');
+      }
+
+      setTranslatedText(data.translated_text);
+      toast({
+        title: 'Готово!',
+        description: 'Текст успешно переведен'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось перевести текст',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   return (
@@ -93,6 +144,8 @@ const Index = () => {
 
                   <TabsContent value="text">
                     <textarea
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
                       placeholder="Вставьте текст для перевода..."
                       className="w-full h-64 p-4 border-2 border-purple-200 rounded-2xl resize-none focus:outline-none focus:border-purple-500 transition-colors"
                     />
@@ -105,7 +158,11 @@ const Index = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Исходный язык
                   </label>
-                  <select className="w-full p-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-white">
+                  <select 
+                    value={sourceLang}
+                    onChange={(e) => setSourceLang(e.target.value)}
+                    className="w-full p-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-white"
+                  >
                     <option>Автоопределение</option>
                     <option>Русский</option>
                     <option>English</option>
@@ -116,7 +173,11 @@ const Index = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Целевой язык
                   </label>
-                  <select className="w-full p-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-white">
+                  <select 
+                    value={targetLang}
+                    onChange={(e) => setTargetLang(e.target.value)}
+                    className="w-full p-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-white"
+                  >
                     <option>English</option>
                     <option>Русский</option>
                     <option>中文</option>
@@ -126,7 +187,7 @@ const Index = () => {
               </div>
 
               <Button 
-                onClick={handleFileUpload}
+                onClick={handleTranslate}
                 disabled={isTranslating}
                 className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
               >
@@ -138,10 +199,36 @@ const Index = () => {
                 ) : (
                   <>
                     <Icon name="Sparkles" className="mr-2" size={24} />
-                    Перевести документ
+                    Перевести текст
                   </>
                 )}
               </Button>
+
+              {translatedText && (
+                <Card className="mt-6 p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 animate-fade-in">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                      <Icon name="CheckCircle" className="text-green-500" size={24} />
+                      Результат перевода
+                    </h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(translatedText);
+                        toast({ title: 'Скопировано!' });
+                      }}
+                      className="bg-white hover:bg-purple-50"
+                    >
+                      <Icon name="Copy" size={16} className="mr-2" />
+                      Копировать
+                    </Button>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-purple-100">
+                    <p className="text-gray-800 whitespace-pre-wrap">{translatedText}</p>
+                  </div>
+                </Card>
+              )}
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">

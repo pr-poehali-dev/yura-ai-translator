@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "name": "Successful translation",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "text": "Hello world",
+        "source_lang": "English",
+        "target_lang": "Russian"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "translated_text": "string",
+        "source_lang": "English",
+        "target_lang": "Russian"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Missing text returns error",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "target_lang": "Russian"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Text is required"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
